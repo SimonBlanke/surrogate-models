@@ -72,3 +72,55 @@ class GPflowSurrogateModel:
 ```
 
 </details>
+
+
+
+<details>
+<summary><b> Decision Tree Ensemble </b></summary>
+
+```python
+from sklearn.ensemble import ExtraTreesRegressor as _ExtraTreesRegressor_
+
+def _return_std(X, trees, predictions, min_variance):
+    """
+    used from: 
+    https://github.com/scikit-optimize/scikit-optimize/blob/master/skopt/learning/forest.py
+    """
+    std = np.zeros(len(X))
+    trees = list(trees)
+
+    for tree in trees:
+        if isinstance(tree, np.ndarray):
+            tree = tree[0]
+
+        var_tree = tree.tree_.impurity[tree.apply(X)]
+        var_tree[var_tree < min_variance] = min_variance
+        mean_tree = tree.predict(X)
+        std += var_tree + mean_tree ** 2
+
+    std /= len(trees)
+    std -= predictions ** 2.0
+    std[std < 0.0] = 0.0
+    std = std ** 0.5
+    return std
+
+
+class ExtraTreesRegressor(_ExtraTreesRegressor_):
+    def __init__(self, min_variance=0.001, **kwargs):
+        self.min_variance = min_variance
+        super().__init__(**kwargs)
+
+    def fit(self, X, y):
+        super().fit(X, np.ravel(y))
+
+    def predict(self, X, return_std=False):
+        mean = super().predict(X)
+
+        if return_std:
+            std = _return_std(X, self.estimators_, mean, self.min_variance)
+
+            return mean, std
+        return mean
+```
+
+</details>
